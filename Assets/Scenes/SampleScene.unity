@@ -339,7 +339,7 @@ MonoBehaviour:
   shipRoot: {fileID: 951302819}
   obj3d: {fileID: 1992470898}
   hudText: {fileID: 1620498358}
-  objOffsetFromTag: {x: 0, y: 0, z: 0.2}
+  objOffsetFromTag: {x: -0.1, y: 0.1, z: 0.2}
 --- !u!114 &774265012
 MonoBehaviour:
   m_ObjectHideFlags: 0
