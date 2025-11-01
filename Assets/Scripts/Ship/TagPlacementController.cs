@@ -1,6 +1,7 @@
-﻿using System.Text;
-using UnityEngine;
+﻿using MagicLeap.Android.NDK.Camera.Metadata;
+using System.Text;
 using TMPro;
+using UnityEngine;
 
 /*
  * Starkie, M.
@@ -33,9 +34,14 @@ public class TagPlacementController : MonoBehaviour
     // Drift tracking
     Vector3 _lastDriftPos;   // meters
     float _lastDriftDeg;     // degrees
-
-    public Vector3 LastDriftPos => _lastDriftPos;
     public float LastDriftDeg => _lastDriftDeg;
+    public Vector3 LastDriftPos => _lastDriftPos;
+
+    Vector3 _maxDriftPos;   // meters
+    float _maxDriftDeg;     // degrees
+    public float MaxDriftDeg => _maxDriftDeg;
+    public Vector3 MaxDriftPos => _maxDriftPos;
+   
     public ulong LastTagId { get; private set; }
 
     // Establish a “baseline”: expected 3D Object pose after first stable detection
@@ -43,6 +49,22 @@ public class TagPlacementController : MonoBehaviour
     Pose _baselineCubePoseWorld;
 
     bool _subscribed;
+
+    static string ToFeetInches(float meters)
+    {
+        const float IN_PER_M = 39.3700787f;
+        float totalIn = Mathf.Abs(meters) * IN_PER_M;
+        int feet = Mathf.FloorToInt(totalIn / 12f);
+        float inches = totalIn - feet * 12f;
+        return $"{feet} ft {inches:0.0} in";
+    }
+
+    public void ResetMaxDrift()
+    {
+        _maxDriftPos = Vector3.zero;
+        _maxDriftDeg = 0f;
+        _hasBaseline = false;
+    }
 
     void Awake()
     {
@@ -111,58 +133,99 @@ public class TagPlacementController : MonoBehaviour
     void HandleObs(TagObservation tag)
     {
         Debug.Log("[ARAccuracy TPC]->HandleObs");
-        // Find ship pose for this tag (v1 default 0,0,0 if not found)
+
+        // (1) Ship/tag pose (placeholder)
         Pose shipTagPose = new Pose(Vector3.zero, Quaternion.identity);
 
-        // You can later load a registry and apply ship offsets here.
+        // (2) Intended cube pose from tag
+        var intendedPos = tag.WorldPose.position + tag.WorldPose.rotation * objOffsetFromTag;
+        var intendedRot = tag.WorldPose.rotation;
+        var intended    = new Pose(intendedPos, intendedRot);
 
-        // Build 3D object's pose relative to tag
-        // Interpret objOffsetFromTag in the tag’s local coordinates:
-        var objWorldPos = tag.WorldPose.position + tag.WorldPose.rotation * objOffsetFromTag;
-        var objWorldRot = tag.WorldPose.rotation; // same orientation as tag (adjust if you need a tilt)
-        var intended = new Pose(objWorldPos, objWorldRot);
-
-        // Compute drift vs current cube transform BEFORE we move it
-        var current = new Pose(obj3d.position, obj3d.rotation);
+        // (3) Drift versus current cube pose (BEFORE moving it)
+        var current     = new Pose(obj3d.position, obj3d.rotation);
         Vector3 posDrift = intended.position - current.position;
-        float angDrift = Quaternion.Angle(intended.rotation, current.rotation);
+        float   angDrift = Quaternion.Angle(intended.rotation, current.rotation);
 
         _lastDriftPos = posDrift;
         _lastDriftDeg = angDrift;
+
+        // (4) Update max drift
+        if (_hasBaseline)
+        {
+            if (_lastDriftPos.sqrMagnitude > _maxDriftPos.sqrMagnitude)
+                _maxDriftPos = _lastDriftPos;
+
+            if (_lastDriftDeg > _maxDriftDeg)
+                _maxDriftDeg = _lastDriftDeg;
+        }
+
         LastTagId = tag.Id;
 
-        // Now apply correction (re-place the cube to intended)
+        // (5) Move cube to intended pose
         obj3d.SetPositionAndRotation(intended.position, intended.rotation);
 
-        // Baseline: after the first placement, record where the cube “should” be
+        // (6) Establish baseline once
         if (!_hasBaseline)
         {
             _baselineCubePoseWorld = intended;
             _hasBaseline = true;
         }
 
-        // Update HUD
-        UpdateHud(tag, intended, posDrift, angDrift);
+        // (7) HUD
+        UpdateHud(tag, intended, _maxDriftPos, _maxDriftDeg);
     }
+
 
     void UpdateHud(TagObservation obs, Pose intended, Vector3 posDrift, float angDrift)
     {
         if (!hudText) return;
         Debug.Log("[ARAccuracy TPC]->UpdateHud");
         var sb = new StringBuilder();
-        sb.AppendLine($"Tag Id: {obs.Id}   size: {obs.SizeMeters:F3} m");
-        sb.AppendLine($"Tag@World   p=({obs.WorldPose.position.x:F3},{obs.WorldPose.position.y:F3},{obs.WorldPose.position.z:F3})");
+        //sb.AppendLine($"Tag Id: {obs.Id}   size: {obs.SizeMeters:F3} m");
+        //sb.AppendLine($"Tag@World   p=({obs.WorldPose.position.x:F3},{obs.WorldPose.position.y:F3},{obs.WorldPose.position.z:F3})");
 
         var e = obs.WorldPose.rotation.eulerAngles;
 
-        sb.AppendLine($"             r=({e.x:F1},{e.y:F1},{e.z:F1})°");
-        sb.AppendLine($"Cube@World  p=({intended.position.x:F3},{intended.position.y:F3},{intended.position.z:F3})");
+        //sb.AppendLine($"             r=({e.x:F1},{e.y:F1},{e.z:F1})°");
+        //sb.AppendLine($"Cube@World  p=({intended.position.x:F3},{intended.position.y:F3},{intended.position.z:F3})");
 
         var ce = intended.rotation.eulerAngles;
 
-        sb.AppendLine($"             r=({ce.x:F1},{ce.y:F1},{ce.z:F1})°");
-        sb.AppendLine($"Drift Δp (m)=({posDrift.x:+0.000;-0.000;+0.000},{posDrift.y:+0.000;-0.000;+0.000},{posDrift.z:+0.000;-0.000;+0.000})");
-        sb.AppendLine($"Drift Δθ (deg)={_lastDriftDeg:0.00}");
+        
+        // Tag world pose
+        Vector3 tagPos = obs.WorldPose.position;
+        Quaternion tagRot = obs.WorldPose.rotation;
+
+        // Tag axes in world
+        Vector3 tagZ = tagRot * Vector3.forward;  // out of the tag
+        Vector3 tagX = tagRot * Vector3.right;
+        Vector3 tagY = tagRot * Vector3.up;
+
+        // Camera position
+        var camTr = Camera.main.transform;
+        Vector3 camPos = camTr.position;
+        Vector3 delta = camPos - tagPos;
+
+        // Signed distances in meters
+        float zMeters = Vector3.Dot(delta, tagZ);  // along tag Z (what you want to compare with tape)
+        float xMeters = Vector3.Dot(delta, tagX);  // right (+) / left (-)
+        float yMeters = Vector3.Dot(delta, tagY);  // up (+) / down (-)
+
+        // If your readout seems negative when you stand in front of the tag,
+        // your tag Z may be flipped relative to your detector's convention.
+        // In that case, just invert tagZ once:
+        // tagZ = -tagZ; zMeters = Vector3.Dot(delta, tagZ);
+
+        string zFeetIn = ToFeetInches(zMeters);
+        string side = zMeters >= 0 ? "in front of" : "behind";
+
+        string distText = $"Tag Z distance: {Mathf.Abs(zMeters):0.000} m  ({zFeetIn})  {side} tag\n" +
+           $"Lateral (X): {xMeters:0.000} m   Vertical (Y): {yMeters:0.000} m";
+     
+        sb.AppendLine(distText);
+        sb.AppendLine($"Max Drift Δp (m)=({posDrift.x:+0.000;-0.000;+0.000},{posDrift.y:+0.000;-0.000;+0.000},{posDrift.z:+0.000;-0.000;+0.000})");
+        sb.AppendLine($"Max Drift Δθ (deg)={_maxDriftDeg:0.00}");
 
         hudText.text = sb.ToString();
     }
