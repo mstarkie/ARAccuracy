@@ -50,6 +50,7 @@ public class TagPlacementController : MonoBehaviour
 
     bool _subscribed;
 
+
     static string ToFeetInches(float meters)
     {
         const float IN_PER_M = 39.3700787f;
@@ -59,11 +60,35 @@ public class TagPlacementController : MonoBehaviour
         return $"{feet} ft {inches:0.0} in";
     }
 
-    public void ResetMaxDrift()
+    public void ResetDrift()
     {
         _maxDriftPos = Vector3.zero;
         _maxDriftDeg = 0f;
+        _lastDriftPos = Vector3.zero;
+        _lastDriftDeg = 0f;
         _hasBaseline = false;
+    }
+
+    public void ClearTargetAcquisition()
+    {
+        ResetDrift();
+
+        LastTagId = 0;
+
+        if (obj3d != null)
+        {
+            obj3d.localPosition = Vector3.zero;
+            obj3d.localRotation = Quaternion.identity;
+        }
+
+        if (hudText != null)
+        {
+            hudText.text =
+            "Target cleared.\n\n" +
+            "Point at an AprilTag to acquire a new target.";
+        }
+
+        Debug.Log("[ARAccuracy TPC] ClearTargetAcquisition: drift & baseline reset.");
     }
 
     void Awake()
@@ -87,8 +112,8 @@ public class TagPlacementController : MonoBehaviour
         }
         tagDetector.EnsureStarted(); // idempotent
         Debug.Log("[ARAccuracy TPC] EnsureStarted called");
-    }  
-  
+    }
+
     void OnDisable()
     {
         if (_subscribed && tagDetector != null)
@@ -97,7 +122,7 @@ public class TagPlacementController : MonoBehaviour
             tagDetector.OnObservation -= HandleObs;
             _subscribed = false;
         }
-       
+
     }
 
     /*
