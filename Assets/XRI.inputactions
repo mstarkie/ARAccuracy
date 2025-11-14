@@ -1,0 +1,223 @@
+{
+    "version": 1,
+    "name": "XRI",
+    "maps": [
+        {
+            "name": "RightHand",
+            "id": "0fa21db5-e091-483f-b5fa-4198080a5b5a",
+            "actions": [
+                {
+                    "name": "Position",
+                    "type": "Value",
+                    "id": "0ddab8d2-eb78-4a84-966b-5d83ba5a2798",
+                    "expectedControlType": "Vector3",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Rotation",
+                    "type": "Value",
+                    "id": "d168c77e-3cee-480a-a1d7-778c1091ad49",
+                    "expectedControlType": "Quaternion",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Select",
+                    "type": "Button",
+                    "id": "46d33aae-227d-476a-9b02-b24cd0ed6d32",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "UIPress",
+                    "type": "Button",
+                    "id": "40d2e40e-9ebc-45fc-b7c8-8a50ccae3e51",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Menu",
+                    "type": "Button",
+                    "id": "67a5321f-8e16-41ef-90fa-1a96611b1793",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "d865541e-74f9-4b28-82df-3d9445365261",
+                    "path": "<MagicLeapController>/devicePosition",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Position",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "665f206a-defd-401d-a4df-23834be2cd4a",
+                    "path": "<MagicLeapController>/deviceRotation",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Rotation",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a61f6bd2-455a-4c4b-a21c-bc70b7c9667d",
+                    "path": "<MagicLeapController>/triggerPressed",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Select",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "ff2897b6-ec17-4581-8283-3b56f65b4be6",
+                    "path": "<MagicLeapController>/triggerPressed",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "UIPress",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8cb6fa14-d0d5-432c-9137-fe2cef873c59",
+                    "path": "<MagicLeapController>/menu",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Menu",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        },
+        {
+            "name": "UITracked",
+            "id": "d89b9329-44ea-488c-9dda-5fe2a5c1a925",
+            "actions": [
+                {
+                    "name": "TrackedDevicePosition",
+                    "type": "Value",
+                    "id": "856e6a3b-565d-4164-8e2e-b38eda53e6a7",
+                    "expectedControlType": "Vector3",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "TrackedDeviceOrientation",
+                    "type": "Value",
+                    "id": "f2676660-64ae-4d32-8249-b7133285012f",
+                    "expectedControlType": "Quaternion",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "TrackedDeviceSelect",
+                    "type": "Button",
+                    "id": "5302ee56-1994-42ee-ae7e-42efaa761237",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Submit",
+                    "type": "Button",
+                    "id": "0a7d3e56-5ac4-4c82-9ca4-5d3e71181a23",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Cancel",
+                    "type": "Button",
+                    "id": "5c0451b7-40fd-4e0d-a987-4443d4773a1e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "e3756581-88f7-4cb4-aa58-fb5839aef37e",
+                    "path": "<XRController>{RightHand}/devicePosition",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TrackedDevicePosition",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "e558e4f8-c9a5-43e1-a73d-a429dcc2ff25",
+                    "path": "<MagicLeapController>/deviceRotation",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TrackedDeviceOrientation",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "3c4919ca-d274-4c3f-b5d8-658c8104e884",
+                    "path": "<MagicLeapController>{RightHand}/triggerPressed",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TrackedDeviceSelect",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "890521d1-0dad-4bec-8476-fc81c03e1588",
+                    "path": "<MagicLeapController>/triggerPressed",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Submit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "edc0a378-40f7-4952-bc34-c4344e207e12",
+                    "path": "<MagicLeapController>{RightHand}/menu",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Cancel",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

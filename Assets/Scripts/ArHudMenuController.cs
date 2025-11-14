@@ -40,8 +40,10 @@ public class ArHudMenuController : MonoBehaviour
 
     public void OnClearTargetPressed()
     {
+         Debug.Log("[AR Menu] Clear Target button pressed.");
         if (tagPlacementController != null)
         {
+            Debug.Log("[AR Menu] Calling TagPlacementController.ClearTargetAcquisition()");
             tagPlacementController.ClearTargetAcquisition();
         }
         else

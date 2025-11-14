@@ -41,15 +41,14 @@ public class TagPlacementController : MonoBehaviour
     float _maxDriftDeg;     // degrees
     public float MaxDriftDeg => _maxDriftDeg;
     public Vector3 MaxDriftPos => _maxDriftPos;
-   
     public ulong LastTagId { get; private set; }
-
-    // Establish a “baseline”: expected 3D Object pose after first stable detection
+    [SerializeField] private ArHudMenuController menuController;  // set in Inspector
+    public ArHudMenuController MenuController => menuController;
     bool _hasBaseline;
     Pose _baselineCubePoseWorld;
 
     bool _subscribed;
-
+   
 
     static string ToFeetInches(float meters)
     {
@@ -71,6 +70,7 @@ public class TagPlacementController : MonoBehaviour
 
     public void ClearTargetAcquisition()
     {
+        Debug.Log("[ARAccuracy TPC] ClearTargetAcquisition() called.");
         ResetDrift();
 
         LastTagId = 0;
@@ -158,6 +158,12 @@ public class TagPlacementController : MonoBehaviour
     void HandleObs(TagObservation tag)
     {
         Debug.Log("[ARAccuracy TPC]->HandleObs");
+
+        if (menuController != null && !menuController.ContinuousAcquisition && _hasBaseline)
+        {
+            // Single mode: already acquired once; do not update.
+            return;
+        }
 
         // (1) Ship/tag pose (placeholder)
         Pose shipTagPose = new Pose(Vector3.zero, Quaternion.identity);
@@ -251,6 +257,9 @@ public class TagPlacementController : MonoBehaviour
         sb.AppendLine(distText);
         sb.AppendLine($"Max Drift Δp (m)=({posDrift.x:+0.000;-0.000;+0.000},{posDrift.y:+0.000;-0.000;+0.000},{posDrift.z:+0.000;-0.000;+0.000})");
         sb.AppendLine($"Max Drift Δθ (deg)={_maxDriftDeg:0.00}");
+
+        var modeStr = (menuController == null || menuController.ContinuousAcquisition) ? "Continuous" : "Single";
+        sb.AppendLine($"Mode: {modeStr}");
 
         hudText.text = sb.ToString();
     }
