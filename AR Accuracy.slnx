@@ -1,4 +1,11 @@
 ﻿<Solution>
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="com.magicleap.xrkeyboard.csproj" />
+  <Project Path="EasyButtons.Editor.csproj" />
+  <Project Path="Toolbox.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="EasyButtons.csproj" />
+  <Project Path="Toolbox.csproj" />
+  <Project Path="Utilities.Editor.csproj" />
+  <Project Path="Utilities.csproj" />
 </Solution>
