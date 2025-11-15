@@ -70,8 +70,8 @@ public class ArHudMenuController : MonoBehaviour
         if (acquisitionModeLabel != null)
         {
             acquisitionModeLabel.text = _continuousAcquisition
-                ? "Mode: Continuous"
-                : "Mode: Single";
+                ? "Continuous"
+                : "Single";
         }
     }
 }
