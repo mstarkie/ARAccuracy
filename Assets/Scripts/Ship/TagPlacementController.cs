@@ -101,28 +101,44 @@ public class TagPlacementController : MonoBehaviour
         Debug.Log("[ARAccuracy TPC] Awake");
     }
 
-    void OnEnable() 
+    public void Enable() 
     {
-        if (tagDetector == null) { Debug.LogError("[ARAccuracy TPC] tagDetector is null"); return; }
+        if (tagDetector == null) 
+        { 
+            Debug.LogError("[ARAccuracy TPC] tagDetector is null"); 
+            return; 
+        }
         if (!_subscribed) 
         { 
             tagDetector.OnObservation += HandleObs; 
             _subscribed = true; 
-            Debug.Log("[ARAccuracy TPC] OnEnable"); 
+            Debug.Log("[ARAccuracy TPC] Enable"); 
         }
-        tagDetector.EnsureStarted(); // idempotent
-        Debug.Log("[ARAccuracy TPC] EnsureStarted called");
+       
     }
 
-    void OnDisable()
+    public void StartDetecting()
     {
-        if (_subscribed && tagDetector != null)
+        Enable();
+        tagDetector.StartDetecting(); // idempotent
+        Debug.Log("[ARAccuracy TPC] StartDetecting called");
+    }
+
+     public void StopDetecting()
+    {
+        Disable();
+        tagDetector.StopDetecting(); 
+        Debug.Log("[ARAccuracy TPC] StopDetecting called");
+    }
+
+    public void Disable()
+    {
+       if (_subscribed && tagDetector != null)
         {
-            Debug.Log("[ARAccuracy TPC]->OnDisable");
+            Debug.Log("[ARAccuracy TPC]->Disable");
             tagDetector.OnObservation -= HandleObs;
             _subscribed = false;
         }
-
     }
 
     /*
@@ -157,13 +173,7 @@ public class TagPlacementController : MonoBehaviour
      */
     void HandleObs(TagObservation tag)
     {
-        Debug.Log("[ARAccuracy TPC]->HandleObs");
-
-        if (menuController != null && !menuController.ContinuousAcquisition && _hasBaseline)
-        {
-            // Single mode: already acquired once; do not update.
-            return;
-        }
+        //Debug.Log("[ARAccuracy TPC]->HandleObs");
 
         // (1) Ship/tag pose (placeholder)
         Pose shipTagPose = new Pose(Vector3.zero, Quaternion.identity);
@@ -189,29 +199,36 @@ public class TagPlacementController : MonoBehaviour
 
             if (_lastDriftDeg > _maxDriftDeg)
                 _maxDriftDeg = _lastDriftDeg;
-        }
+        } 
 
         LastTagId = tag.Id;
 
         // (5) Move cube to intended pose
         obj3d.SetPositionAndRotation(intended.position, intended.rotation);
 
-        // (6) Establish baseline once
         if (!_hasBaseline)
         {
             _baselineCubePoseWorld = intended;
             _hasBaseline = true;
         }
 
-        // (7) HUD
+         Debug.Log("[ARAccuracy TPC] Reading menuController: " + menuController.gameObject.name + " InstanceID: " +
+  menuController.GetInstanceID() + " ContinuousAcquisition=" + menuController.ContinuousAcquisition);
+        Debug.Log("[ARAccuracy TPC] menuController=" + (menuController != null) + " ContinuousAcquisition=" +
+            (menuController != null ? menuController.ContinuousAcquisition : false) + " _hasBaseline=" + _hasBaseline);
         UpdateHud(tag, intended, _maxDriftPos, _maxDriftDeg);
+        if (menuController != null && !menuController.ContinuousAcquisition)
+        {
+            Debug.Log("!!! [ARAccuracy TPC] SHOULD STOP DETECTING NOW !!!");
+            StopDetecting();
+        }
     }
 
 
     void UpdateHud(TagObservation obs, Pose intended, Vector3 posDrift, float angDrift)
     {
         if (!hudText) return;
-        Debug.Log("[ARAccuracy TPC]->UpdateHud");
+        //Debug.Log("[ARAccuracy TPC]->UpdateHud");
         var sb = new StringBuilder();
         //sb.AppendLine($"Tag Id: {obs.Id}   size: {obs.SizeMeters:F3} m");
         //sb.AppendLine($"Tag@World   p=({obs.WorldPose.position.x:F3},{obs.WorldPose.position.y:F3},{obs.WorldPose.position.z:F3})");
@@ -262,6 +279,7 @@ public class TagPlacementController : MonoBehaviour
         sb.AppendLine($"Mode: {modeStr}");
 
         hudText.text = sb.ToString();
+        Debug.Log("[ARAccuracy TPC]->UpdateHud()");
     }
 
     // Update is called once per frame

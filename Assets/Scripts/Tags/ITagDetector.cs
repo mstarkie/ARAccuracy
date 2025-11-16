@@ -6,7 +6,7 @@ public interface ITagDetector
     event Action<TagObservation> OnObservation;
 
     /// Ensure the detector is started (idempotent; safe to call multiple times).
-    void EnsureStarted();
+    void StartDetecting();
 
     /// Optionally stop/cleanup (no-op if not started).
     void StopDetecting();

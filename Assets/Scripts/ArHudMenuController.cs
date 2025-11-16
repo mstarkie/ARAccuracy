@@ -11,11 +11,14 @@ public class ArHudMenuController : MonoBehaviour
 
     [Header("Acquisition Mode UI")]
     [SerializeField] private TextMeshProUGUI acquisitionModeLabel;
+    [SerializeField] private TextMeshProUGUI clearTargetLabel;
 
     // Internal state
     private bool _menuOpen;
     private bool _continuousAcquisition = true; // default
     public bool ContinuousAcquisition => _continuousAcquisition;
+    private bool _started = false; // default
+    public bool Started => _started;
 
     private void Awake()
     {
@@ -40,29 +43,38 @@ public class ArHudMenuController : MonoBehaviour
 
     public void OnClearTargetPressed()
     {
-         Debug.Log("[AR Menu] Clear Target button pressed.");
         if (tagPlacementController != null)
         {
-            Debug.Log("[AR Menu] Calling TagPlacementController.ClearTargetAcquisition()");
-            tagPlacementController.ClearTargetAcquisition();
-        }
-        else
-        {
-            Debug.LogWarning("[AR Menu] TagPlacementController not assigned.");
+             _started = !_started;
+            UpdateClearTargetLabel();
+            if (_started)
+            {
+                tagPlacementController.StartDetecting();
+                Debug.Log("[ARAccuracy Menu] tagPlacementController enabled!");
+            } else
+            {
+                tagPlacementController.StopDetecting();
+                tagPlacementController.ClearTargetAcquisition();
+                Debug.Log("[ARAccuracy Menu] tagPlacementController disabled!");
+            }
+            
         }
     }
 
     // Req #1: Toggle single vs continuous (logic will be fleshed out next)
     public void OnToggleAcquisitionModePressed()
     {
+        if (_started)
+        {
+            return;
+        }
         _continuousAcquisition = !_continuousAcquisition;
+          Debug.Log("[ARAccuracy Menu] TOGGLED! _continuousAcquisition is now: " + _continuousAcquisition + " on instance: "
+   + gameObject.name + " InstanceID: " + GetInstanceID());
         UpdateAcquisitionLabel();
 
-        Debug.Log("[AR Menu] Acquisition mode: " +
-                  (_continuousAcquisition ? "Continuous" : "Single"));
-
-        // TODO: in the next step we’ll hook this into the tag detector /
-        // TagPlacementController so they respect this mode.
+        Debug.Log("[ARAccuracy Menu] Acquisition mode: " +
+                  (_continuousAcquisition ? "Continuous Aquisition" : "Single Aquisition"));
     }
     
     private void UpdateAcquisitionLabel()
@@ -70,8 +82,18 @@ public class ArHudMenuController : MonoBehaviour
         if (acquisitionModeLabel != null)
         {
             acquisitionModeLabel.text = _continuousAcquisition
-                ? "Continuous"
-                : "Single";
+                ? "Continuous Aquisition"
+                : "Single Aquisition";
+        }
+    }
+
+       private void UpdateClearTargetLabel()
+    {
+        if (clearTargetLabel != null)
+        {
+            clearTargetLabel.text = _started
+                ? "Stop"
+                : "Start";
         }
     }
 }

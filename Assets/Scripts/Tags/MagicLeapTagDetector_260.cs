@@ -33,11 +33,34 @@ public class MagicLeapTagDetector_260 : MonoBehaviour, ITagDetector
         Debug.Log("[ARAccuracy MLDet] Awake. Feature present? " + (_feature != null) + ", enabled? " + _feature?.enabled);
     }
 
-    public void EnsureStarted()
+    public void StartDetecting()
     {
-        if (_started || _starting) { Debug.Log("[ARAccuracy MLDet] EnsureStarted: already running/starting"); return; }
+        if (_started || _starting) 
+        { 
+            return; 
+        }
         _starting = true;
         StartCoroutine(StartFlow());
+        Debug.Log("[ARAccuracy MLDet] StartDetecting called."); 
+    }
+
+    public void StopDetecting()
+    {
+        if (_feature != null && _detector != null)
+        {
+            try
+            {
+                Debug.Log("[ARAccuracy MLDet] Stopping and destroying detector...");
+                StopCoroutine(StartFlow());
+                _detector = null;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ARAccuracy MLDet] StopDetecting exception: " + ex.Message);
+            }
+        }
+        _starting = false;
+        _started = false;
     }
 
     IEnumerator StartFlow()
@@ -110,16 +133,16 @@ public class MagicLeapTagDetector_260 : MonoBehaviour, ITagDetector
         // Pump all detectors first
         _feature.UpdateMarkerDetectors();
 
-        Debug.Log("[ARAccuracy MLDet->Update] Detector status: " + _detector?.Status);
+        //Debug.Log("[ARAccuracy MLDet->Update] Detector status: " + _detector?.Status);
 
         if (_detector.Status != MarkerDetectorStatus.Ready)
         {
-            Debug.Log("[ARAccuracy MLDet->Update] Detector not READY");
+            //Debug.Log("[ARAccuracy MLDet->Update] Detector not READY");
             return;
         }
         else
         {
-            Debug.Log("[ARAccuracy MLDet->Update] Status=" + _detector.Status);
+            //Debug.Log("[ARAccuracy MLDet->Update] Status=" + _detector.Status);
         }
 
         // Read latest observations
@@ -127,7 +150,7 @@ public class MagicLeapTagDetector_260 : MonoBehaviour, ITagDetector
         // List<...> (SDK-defined struct with MarkerPose/Number/String/Length)
         var dataList = _detector.Data;
         if (dataList == null || dataList.Count == 0) return;
-        Debug.Log("[ARAccuracy MLDet->Update] Detector Observations: " + dataList.Count);
+        //Debug.Log("[ARAccuracy MLDet->Update] Detector Observations: " + dataList.Count);
 
         foreach (var d in dataList)
         {
@@ -142,30 +165,9 @@ public class MagicLeapTagDetector_260 : MonoBehaviour, ITagDetector
                 Valid = true
             };
             OnObservation?.Invoke(obs);
+            //Debug.Log("[ARAccuracy MLDet]->Update() called");
         }
     }
 
-    public void StopDetecting()
-    {
-        if (!_started) return;
-        _started = false;
 
-        if (_feature != null && _detector != null)
-        {
-            try
-            {
-                Debug.Log("[ARAccuracy MLDet] Stopping and destroying detector...");
-                // Depending on your SDK build, one of these will exist:
-                // _feature.DestroyMarkerDetector(_detector);
-                // or
-                // _detector.Enabled = false;
-
-                _detector = null;
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning("[ARAccuracy MLDet] StopDetecting exception: " + ex.Message);
-            }
-        }
-    }
 }
