@@ -46,16 +46,17 @@ The application uses a **tag detection → coordinate transformation → drift m
 
 3. **Drift Measurement System**
    - When a tag is first acquired, `TagPlacementController` establishes a baseline world pose
-   - On subsequent detections of the same tag, it compares:
-     - **Position drift:** Linear distance between expected and actual pose (meters)
-     - **Rotation drift:** Angular difference (degrees)
-   - Tracks both instantaneous drift (`_lastDriftPos`, `_lastDriftDeg`) and maximum drift since acquisition
-   - `DriftLogger` samples drift data at intervals and writes CSV logs to persistent storage
+   - Tracks TWO types of drift:
+     - **Frame-to-frame drift:** Measures change between consecutive observations (detection noise + instant SLAM corrections)
+     - **Total drift from baseline:** Measures cumulative offset from initial detection (accumulated error over time)
+   - Also tracks maximum frame-to-frame drift (worst-case single jump)
+   - `DriftLogger` samples both drift types at intervals and writes CSV logs to persistent storage with columns: `frameDriftX/Y/Z, frameDriftDeg, totalDriftX/Y/Z, totalDriftDeg`
 
 4. **UI and Control** (`Assets/Scripts/`)
    - `ArHudMenuController` provides Start/Stop and acquisition mode toggle (single vs continuous)
    - `DebugHudBuilder` creates runtime HUD overlays showing drift metrics and tag distance
    - `TagPlacementController.UpdateHud()` displays real-time distance from camera to tag in both meters and feet/inches
+   - Runtime axis visualization shows RGB lines (Red=X, Green=Y, Blue=Z) at detected tag position with labels
 
 ### Key Design Patterns
 
@@ -99,10 +100,11 @@ To support additional AR headsets (e.g., Meta Quest, HoloLens):
 
 ### Modifying Drift Calculation
 
-Drift logic is in `TagPlacementController.HandleObs()` (Assets/Scripts/Ship/TagPlacementController.cs:174-225):
-- Drift is measured BEFORE moving the object to the new pose
-- Modify `_maxDriftPos`/`_maxDriftDeg` tracking for different statistical measures (e.g., RMS, percentiles)
-- CSV logging format is in `DriftLogger.Update()` (Assets/Scripts/DriftLogger.cs:63)
+Drift logic is in `TagPlacementController.HandleObs()`:
+- **Frame-to-frame drift** is measured BEFORE moving the object to the new pose (current vs intended)
+- **Total drift from baseline** compares current intended pose against the first observation baseline
+- Maximum frame-to-frame drift tracks the worst-case single jump
+- CSV logging format includes both drift types in `DriftLogger.Update()` (12 columns total)
 
 ### Configuring AprilTag Detection
 
@@ -131,14 +133,42 @@ Permission required: `com.magicleap.permission.MARKER_TRACKING` (automatically r
 
 ### Unity-Specific Gotchas
 
+**CRITICAL: XR Origin Position**
+The ML Rig GameObject (which contains XR Origin) **MUST** be at world position **(0, 0, 0)**. Any offset will cause detected tag positions to be incorrect. The Magic Leap reports tag poses in world space relative to XR Origin, so moving the origin breaks the spatial alignment between detected positions and rendered objects.
+
+**Magic Leap Z-Axis Inversion**
+The Magic Leap's AprilTag detector reports the tag's Z-axis pointing **backward** (into the surface) instead of forward (out toward camera). The distance calculation inverts this: `tagZ = -tagZ; zMeters = Vector3.Dot(delta, tagZ);` (line 340 in TagPlacementController.cs)
+
 **ScriptableObject Registry Pattern:**
 `ShipCoordinateRegistry` must call `OnEnable()` to rebuild the dictionary cache. When editing entries in the Inspector, the cache updates on domain reload but not immediately during runtime.
 
 **TextMeshPro HUD:**
 HUD text is updated every frame in `TagPlacementController.UpdateHud()`. For performance, consider throttling updates or using dirty flags if frame rate becomes an issue.
 
+**World Space Canvas Transparency**
+UI Canvas in World Space can darken 3D objects when semi-transparent panels pass between camera and objects. Ensure menu background panels have alpha=0 if not needed, or use Screen Space - Overlay render mode to avoid depth interactions.
+
 **Coordinate Handedness:**
 Unity uses left-handed Y-up coordinates. AprilTag detection typically assumes Z-forward (out of tag), X-right, Y-up. Verify tag orientation conventions if distance measurements seem inverted.
+
+## Debugging and Visualization
+
+**Runtime Axis Visualization:**
+`TagPlacementController` includes a runtime axis visualization system:
+- RGB LineRenderers show tag coordinate axes (Red=X, Green=Y, Blue=Z) at detected tag position
+- TextMeshPro labels ("X", "Y", "Z") appear at axis endpoints, billboarded to face camera
+- Controlled by `showTagAxes` bool (default: true)
+- Axes appear when tag pose is available, disappear when cleared or stopped
+- Useful for debugging tag detection position accuracy and orientation
+- Axis length: 0.3m (configurable in code)
+
+**HUD Display:**
+The HUD shows in real-time:
+- Tag ID being tracked
+- Tag distance in Z/X/Y axes (meters and feet/inches)
+- Max Frame Drift (worst single jump)
+- Total Drift (current offset from baseline)
+- Acquisition mode (Single/Continuous)
 
 ## Project Structure Highlights
 
@@ -177,14 +207,17 @@ The project uses these platform-specific symbols (configured in ProjectSettings)
 1. Place AprilTag at known distance (use measuring tape)
 2. Start application and point headset at tag
 3. Compare HUD "Tag Z distance" readout with physical measurement
-4. Walk around while keeping tag in view
-5. Observe "Max Drift" values in HUD
+4. Use **Continuous Acquisition** mode and walk around while keeping tag in view
+5. Observe drift values in HUD:
+   - **Max Frame Drift**: Worst single jump between observations (detection noise + instant SLAM corrections)
+   - **Total Drift**: Current offset from baseline (should stay small and fluctuate, not trend in one direction)
 6. Review CSV logs in device persistent storage for detailed analysis
 
 **Typical Drift Values:**
-- Good tracking: <1cm position drift, <2° rotation drift
-- Moderate: 1-3cm position, 2-5° rotation
-- Poor: >5cm position, >10° rotation (indicates SLAM failure or occlusion)
+- **Max Frame Drift** (good): <5mm position, <2° rotation
+- **Total Drift fluctuation** (good): ±1-5mm random variation
+- **Total Drift trending** (bad): Continuous increase in one direction indicates SLAM failure
+- **Large jumps** (bad): >10mm frame drift or >5° indicates tracking instability or occlusion
 
 ## Permissions
 

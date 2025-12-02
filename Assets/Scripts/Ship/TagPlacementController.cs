@@ -29,27 +29,65 @@ public class TagPlacementController : MonoBehaviour
     public TextMeshProUGUI hudText;           // simple UI Text at bottom of view
 
     [Header("Placement")]
-    public Vector3 objOffsetFromTag = new(0f, 0.0f, 0.2f); // 20 cm in tag local (forward)
+    public Vector3 objOffsetFromTag = new(0, 0, 0); // .1 = 1 cm
 
     // Drift tracking
-    Vector3 _lastDriftPos;   // meters
-    float _lastDriftDeg;     // degrees
-    public float LastDriftDeg => _lastDriftDeg;
-    public Vector3 LastDriftPos => _lastDriftPos;
+    Vector3 _frameToFrameDriftPos;   // meters
+    float _frameToFrameDriftDeg;     // degrees
+    public float FrameToFrameDriftDeg => _frameToFrameDriftDeg;
+    public Vector3 FrameToFrameDriftPos => _frameToFrameDriftPos;
 
-    Vector3 _maxDriftPos;   // meters
-    float _maxDriftDeg;     // degrees
-    public float MaxDriftDeg => _maxDriftDeg;
-    public Vector3 MaxDriftPos => _maxDriftPos;
+    Vector3 _maxFrameToFrameDriftPos; 
+    float _maxFrameToFrameDriftDeg;   
+    public Vector3 MaxFrameToFrameDriftPos => _maxFrameToFrameDriftPos;  
+    public float MaxFrameToFrameDriftDeg => _maxFrameToFrameDriftDeg;  
+
+    private Pose _lastTagPose;  // Add as class member
+    private bool _hasTagPose;   // Track if valid
+    Vector3 _totalDriftPos;   // meters
+    float _totalDriftDeg;     // degrees
+    public float TotalDriftDeg => _totalDriftDeg;
+    public Vector3 TotalDriftPos => _totalDriftPos;
     public ulong LastTagId { get; private set; }
     [SerializeField] private ArHudMenuController menuController;  // set in Inspector
     public ArHudMenuController MenuController => menuController;
     bool _hasBaseline;
     Pose _baselineCubePoseWorld;
-
     bool _subscribed;
-   
+    [Header("Debug Visualization")]
+    public bool showTagAxes = true;
+    private LineRenderer[] _axisLines = new LineRenderer[3];
+    private TextMeshPro[] _axisLabels = new TextMeshPro[3];
 
+    void CreateAxisVisualizers()
+    {
+        string[] labels = { "X", "Y", "Z" };
+        Color[] colors = { Color.red, Color.green, Color.blue };
+
+        for (int i = 0; i < 3; i++)
+        {
+            GameObject axisObj = new GameObject($"TagAxis_{i}");
+            axisObj.transform.SetParent(transform);
+            LineRenderer lr = axisObj.AddComponent<LineRenderer>();
+            lr.startWidth = 0.005f;
+            lr.endWidth = 0.005f;
+            lr.positionCount = 2;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = i == 0 ? Color.red : i == 1 ? Color.green : Color.blue;
+            lr.endColor = lr.startColor;
+            _axisLines[i] = lr;
+
+            // Add label
+            GameObject labelObj = new GameObject($"Label_{labels[i]}");
+            labelObj.transform.SetParent(axisObj.transform);
+            TextMeshPro tmp = labelObj.AddComponent<TextMeshPro>();
+            tmp.text = labels[i];
+            tmp.fontSize = 0.5f;
+            tmp.color = colors[i];
+            tmp.alignment = TextAlignmentOptions.Center;
+            _axisLabels[i] = tmp;
+        }
+    }
     static string ToFeetInches(float meters)
     {
         const float IN_PER_M = 39.3700787f;
@@ -61,10 +99,12 @@ public class TagPlacementController : MonoBehaviour
 
     public void ResetDrift()
     {
-        _maxDriftPos = Vector3.zero;
-        _maxDriftDeg = 0f;
-        _lastDriftPos = Vector3.zero;
-        _lastDriftDeg = 0f;
+        _totalDriftPos = Vector3.zero;
+        _totalDriftDeg = 0f;
+        _frameToFrameDriftPos = Vector3.zero;
+        _frameToFrameDriftDeg = 0f;
+        _maxFrameToFrameDriftPos = Vector3.zero;
+        _maxFrameToFrameDriftDeg = 0f;
         _hasBaseline = false;
     }
 
@@ -98,6 +138,7 @@ public class TagPlacementController : MonoBehaviour
         shipRoot ??= GameObject.Find("ShipRoot")?.transform;
         obj3d ??= GameObject.Find("Cube")?.transform;
         hudText ??= GameObject.Find("HUD Text")?.GetComponent<TextMeshProUGUI>();
+        if (showTagAxes) CreateAxisVisualizers();
         Debug.Log("[ARAccuracy TPC] Awake");
     }
 
@@ -175,57 +216,89 @@ public class TagPlacementController : MonoBehaviour
     {
         //Debug.Log("[ARAccuracy TPC]->HandleObs");
 
-        // (1) Ship/tag pose (placeholder)
-        Pose shipTagPose = new Pose(Vector3.zero, Quaternion.identity);
+        _lastTagPose = tag.WorldPose;  // Store for debugging
+        _hasTagPose = true;
 
-        // (2) Intended cube pose from tag
         var intendedPos = tag.WorldPose.position + tag.WorldPose.rotation * objOffsetFromTag;
         var intendedRot = tag.WorldPose.rotation;
         var intended    = new Pose(intendedPos, intendedRot);
 
+        Debug.Log($"[HandleObs] Offset applied: {objOffsetFromTag}");
+        Debug.Log($"[HandleObs] Tag world position: {tag.WorldPose.position}");
+        Debug.Log($"[HandleObs] Tag world rotation: {tag.WorldPose.rotation}");
+        Debug.Log($"[HandleObs] Tag world offset: {tag.WorldPose.rotation * objOffsetFromTag}");
+        Debug.Log($"[HandleObs] Intended cube world position: {intendedPos}");
+        Debug.Log($"[HandleObs] Cube will position from {obj3d.position} to {intendedPos}");
+        Debug.Log($"[HandleObs] Cube will rotate from {obj3d.rotation} to {intendedRot}");
+
+        // (1) Ship/tag pose (placeholder)
+        //Pose shipTagPose = new Pose(Vector3.zero, Quaternion.identity);
+
+        // DEBUG: Print tag coordinate axes
+        Vector3 tagRight = tag.WorldPose.rotation * Vector3.right;      // X (red)
+        Vector3 tagUp = tag.WorldPose.rotation * Vector3.up;            // Y (green)
+        Vector3 tagForward = tag.WorldPose.rotation * Vector3.forward;  // Z (blue)
+
+        Debug.Log($"[HandleObs] Tag axes in world space:");
+        Debug.Log($"[HandleObs]   Right   (X): {tagRight}");
+        Debug.Log($"[HandleObs]   Up      (Y): {tagUp}");
+        Debug.Log($"[HandleObs]   Forward (Z): {tagForward}");
+        
         // (3) Drift versus current cube pose (BEFORE moving it)
-        var current     = new Pose(obj3d.position, obj3d.rotation);
+        var current = new Pose(obj3d.position, obj3d.rotation);
         Vector3 posDrift = intended.position - current.position;
-        float   angDrift = Quaternion.Angle(intended.rotation, current.rotation);
+        float angDrift = Quaternion.Angle(intended.rotation, current.rotation);
 
-        _lastDriftPos = posDrift;
-        _lastDriftDeg = angDrift;
+        _frameToFrameDriftPos = posDrift;
+        _frameToFrameDriftDeg = angDrift;
 
-        // (4) Update max drift
-        if (_hasBaseline)
-        {
-            if (_lastDriftPos.sqrMagnitude > _maxDriftPos.sqrMagnitude)
-                _maxDriftPos = _lastDriftPos;
-
-            if (_lastDriftDeg > _maxDriftDeg)
-                _maxDriftDeg = _lastDriftDeg;
-        } 
+        // Track maximum frame drift
+        if (_frameToFrameDriftPos.magnitude > _maxFrameToFrameDriftPos.magnitude)
+            _maxFrameToFrameDriftPos = _frameToFrameDriftPos;
+        if (_frameToFrameDriftDeg > _maxFrameToFrameDriftDeg)
+            _maxFrameToFrameDriftDeg = _frameToFrameDriftDeg;
 
         LastTagId = tag.Id;
 
         // (5) Move cube to intended pose
         obj3d.SetPositionAndRotation(intended.position, intended.rotation);
 
+         // DEBUG: Verify the cube actually moved
+        Debug.Log($"[HandleObs] After SetPositionAndRotation:");
+        Debug.Log($"[HandleObs] new cube world position: {obj3d.position}");
+        Debug.Log($"[HandleObs] new cube local position: {obj3d.localPosition}");
+        Debug.Log($"[HandleObs] obj3d.parent: {(obj3d.parent != null ? obj3d.parent.name : "null")}");
+        if (obj3d.parent != null)
+        {
+            Debug.Log($"[HandleObs] parent.position: {obj3d.parent.position}");
+        }
+
         if (!_hasBaseline)
         {
             _baselineCubePoseWorld = intended;
             _hasBaseline = true;
         }
+        else
+        {
+            _totalDriftPos = intended.position - _baselineCubePoseWorld.position;
+            _totalDriftDeg = Quaternion.Angle(intended.rotation, _baselineCubePoseWorld.rotation);
+        }
+        
 
-         Debug.Log("[ARAccuracy TPC] Reading menuController: " + menuController.gameObject.name + " InstanceID: " +
-  menuController.GetInstanceID() + " ContinuousAcquisition=" + menuController.ContinuousAcquisition);
-        Debug.Log("[ARAccuracy TPC] menuController=" + (menuController != null) + " ContinuousAcquisition=" +
+        Debug.Log("[HandleObs] Reading menuController: " + menuController.gameObject.name + " InstanceID: " +
+            menuController.GetInstanceID() + " ContinuousAcquisition=" + menuController.ContinuousAcquisition);
+        Debug.Log("[HandleObs] menuController=" + (menuController != null) + " ContinuousAcquisition=" +
             (menuController != null ? menuController.ContinuousAcquisition : false) + " _hasBaseline=" + _hasBaseline);
-        UpdateHud(tag, intended, _maxDriftPos, _maxDriftDeg);
+        UpdateHud(tag, intended);
         if (menuController != null && !menuController.ContinuousAcquisition)
         {
-            Debug.Log("!!! [ARAccuracy TPC] SHOULD STOP DETECTING NOW !!!");
+            Debug.Log("!!! [HandleObs] SHOULD STOP DETECTING NOW !!!");
             StopDetecting();
         }
     }
 
 
-    void UpdateHud(TagObservation obs, Pose intended, Vector3 posDrift, float angDrift)
+    void UpdateHud(TagObservation obs, Pose intended)
     {
         if (!hudText) return;
         //Debug.Log("[ARAccuracy TPC]->UpdateHud");
@@ -263,18 +336,29 @@ public class TagPlacementController : MonoBehaviour
         // If your readout seems negative when you stand in front of the tag,
         // your tag Z may be flipped relative to your detector's convention.
         // In that case, just invert tagZ once:
-        // tagZ = -tagZ; zMeters = Vector3.Dot(delta, tagZ);
+
+        tagZ = -tagZ; zMeters = Vector3.Dot(delta, tagZ);
 
         string zFeetIn = ToFeetInches(zMeters);
         string side = zMeters >= 0 ? "in front of" : "behind";
 
-        string distText = $"Tag Z distance: {Mathf.Abs(zMeters):0.000} m  ({zFeetIn})  {side} tag\n" +
-           $"Lateral (X): {xMeters:0.000} m   Vertical (Y): {yMeters:0.000} m";
-     
-        sb.AppendLine(distText);
-        sb.AppendLine($"Max Drift Δp (m)=({posDrift.x:+0.000;-0.000;+0.000},{posDrift.y:+0.000;-0.000;+0.000},{posDrift.z:+0.000;-0.000;+0.000})");
-        sb.AppendLine($"Max Drift Δθ (deg)={_maxDriftDeg:0.00}");
+        Debug.Log($"[UpdateHud] Camera position: {camPos}");
+        Debug.Log($"[UpdateHud] Tag position: {tagPos}");
+        Debug.Log($"[UpdateHud] Delta (cam - tag): {delta}");
+        Debug.Log($"[UpdateHud] zMeters: {zMeters}");
+        Debug.Log($"[UpdateHud] zFeetIn: {zFeetIn}");
+        Debug.Log($"[UpdateHud] side: {side}");
 
+        //string distText = $"Tag Z distance: {Mathf.Abs(zMeters):0.000} m  ({zFeetIn})  {side} tag\n" +
+           //$"Lateral (X): {xMeters:0.000} m   Vertical (Y): {yMeters:0.000} m";
+
+        string distText = $"Dist Z: {Mathf.Abs(zMeters):0.000}m ({zFeetIn}) {side}\n" +
+            $"X: {xMeters:0.000}m  Y: {yMeters:0.000}m";
+        sb.AppendLine(distText);
+        
+        sb.AppendLine($"Tag ID: {obs.Id}"); 
+        sb.AppendLine($"Total Drift: Δp={_totalDriftPos.magnitude:0.000}m Δθ={_totalDriftDeg:0.00}°");
+        sb.AppendLine($"Max Drift: Δp={_maxFrameToFrameDriftPos.magnitude:0.000}mΔθ={_maxFrameToFrameDriftDeg:0.00}°");
         var modeStr = (menuController == null || menuController.ContinuousAcquisition) ? "Continuous" : "Single";
         sb.AppendLine($"Mode: {modeStr}");
 
@@ -288,6 +372,42 @@ public class TagPlacementController : MonoBehaviour
         if (!hudText)
         {
             Debug.Log("[ARAccuracy TPC]->Update() - hudText is NULL");
+        }
+
+        if (showTagAxes && _axisLines[0] != null)
+        {
+            //bool visible = _hasTagPose && _subscribed; // Only show when detecting
+            bool visible = _hasTagPose;
+            float axisLength = 0.3f;
+
+            for (int i = 0; i < 3; i++)
+            {
+              _axisLines[i].enabled = visible;
+              if (_axisLabels[i] != null)
+              {
+                _axisLabels[i].gameObject.SetActive(visible);
+              }
+            }
+
+            if (visible)
+            {
+                Vector3[] directions = { Vector3.right, Vector3.up, Vector3.forward };
+
+                for (int i = 0; i < 3; i++)
+                {
+                    Vector3 start = _lastTagPose.position;
+                    Vector3 end = start + _lastTagPose.rotation * directions[i] * axisLength;
+
+                    _axisLines[i].SetPosition(0, start);
+                    _axisLines[i].SetPosition(1, end);
+
+                    if (_axisLabels[i] != null)
+                    {
+                        _axisLabels[i].transform.position = end;
+                        _axisLabels[i].transform.rotation = Camera.main.transform.rotation; 
+                    }
+                }
+            }
         }
     }
 }

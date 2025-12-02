@@ -31,7 +31,7 @@ public class DriftLogger : MonoBehaviour
         _path = Path.Combine(Application.persistentDataPath,
             $"drift_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
         _sw = new StreamWriter(_path);
-        _sw.WriteLine("t,tagId,cubeX,cubeY,cubeZ,driftX,driftY,driftZ,driftDeg");
+        _sw.WriteLine("t,tagId,cubeX,cubeY,cubeZ,frameDriftX,frameDriftY,frameDriftZ,frameDriftDeg,totalDriftX,totalDriftY,totalDriftZ,totalDriftDeg");
         _sw.Flush();
         Debug.Log("[ARAccuracy DriftLogger] Logging to: " + _path);
     }
@@ -54,13 +54,15 @@ public class DriftLogger : MonoBehaviour
         _nextSampleTime = Time.timeAsDouble + sampleInterval;
 
         var p = controller.obj3d.position;
-        var d = controller.LastDriftPos;  // exposed by controller (see below)
-        var a = controller.LastDriftDeg;
+        var frameD = controller.FrameToFrameDriftPos;
+        var frameA = controller.FrameToFrameDriftDeg;
+        var totalD = controller.TotalDriftPos;
+        var totalA = controller.TotalDriftDeg;
         ulong id = controller.LastTagId;
 
         Debug.Log("[ARAccuracy DriftLogger]->Update: SAMPLED!");
 
-        _sw.WriteLine($"{Time.timeAsDouble:F3},{id},{p.x:F4},{p.y:F4},{p.z:F4},{d.x:F4},{d.y:F4},{d.z:F4},{a:F2}");
+        _sw.WriteLine($"{Time.timeAsDouble:F3},{id},{p.x:F4},{p.y:F4},{p.z:F4},{frameD.x:F4},{frameD.y:F4},{frameD.z:F4},{frameA:F2},{totalD.x:F4},{totalD.y:F4},{totalD.z:F4},{totalA:F2}");
         _sw.Flush();
     }
 
